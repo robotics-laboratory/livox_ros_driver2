@@ -31,21 +31,18 @@
 namespace livox_ros {
 
 class Semaphore {
- public:
-  explicit Semaphore(int count = 0) : count_(count) {
-  }
-  void Signal();
-  void Wait();
-  int GetCount() {
-    return count_;
-  }
+  public:
+    explicit Semaphore(int count = 0) : count_(count) {}
+    void Signal();
+    void Wait();
+    int GetCount() { return count_; }
 
- private:
-  std::mutex mutex_;
-  std::condition_variable cv_;
-  volatile int count_;
+  private:
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    volatile int count_;
 };
 
-} // namespace livox_ros
+}  // namespace livox_ros
 
-#endif // LIVOX_ROS_DRIVER_SEMAPHORE_H_
+#endif  // LIVOX_ROS_DRIVER_SEMAPHORE_H_
