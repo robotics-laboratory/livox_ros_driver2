@@ -183,6 +183,66 @@ uint8   line            # laser number in lidar
 
 &ensp;&ensp;&ensp;&ensp;Please refer to the pcl :: PointXYZI data structure in the point_types.hpp file of the PCL library.
 
+### 3.3 Check `pc2_custom_converter` (ROS2)
+
+Build the package first:
+
+```shell
+cd ~/ws_livox
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-select livox_ros_driver2
+source install/setup.bash
+```
+
+Run converter (PointCloud2 -> CustomMsg):
+
+```shell
+source /opt/ros/jazzy/setup.bash
+source ~/ws_livox/install/setup.bash
+ros2 run livox_ros_driver2 pc2_custom_converter --ros-args \
+  -p mode:=pc2cust -p pc2_layout:=custommsg \
+  -p pc2_topic:=/livox/lidar \
+  -p custom_topic:=/livox/custom
+```
+
+Run converter (CustomMsg -> PointCloud2 round-trip):
+
+```shell
+source /opt/ros/jazzy/setup.bash
+source ~/ws_livox/install/setup.bash
+ros2 run livox_ros_driver2 pc2_custom_converter --ros-args \
+  -p mode:=cust2pc \
+  -p pc2_layout:=custommsg \
+  -p pc2_topic:=/livox/lidar_roundtrip \
+  -p custom_topic:=/livox/custom
+```
+
+Run verifier (compare original and round-trip PointCloud2):
+
+```shell
+source /opt/ros/jazzy/setup.bash
+source ~/ws_livox/install/setup.bash
+ros2 run livox_ros_driver2 pc2_custom_converter --ros-args \
+  -p mode:=verify \
+  -p pc2_layout:=custommsg \
+  -p pc2_topic:=/livox/lidar \
+  -p verify_topic:=/livox/lidar_roundtrip \
+  -p verify_tolerance:=0.0
+```
+
+Play your bag (in another terminal):
+
+```shell
+source /opt/ros/jazzy/setup.bash
+source ~/fastlio2_ros2_ws/install/setup.bash
+ros2 bag play ~/share/stepa-dataset-2506_7_0.mcap --clock --exclude-topics /tf /tf_static
+```
+
+Expected result:
+
+* `verify mismatch` errors should not appear.
+* `verify stats` should show `mismatch=0`.
+
 ## 4. LiDAR config
 
 LiDAR Configurations (such as ip, port, data type... etc.) can be set via a json-style config file. Config files for single HAP, Mid360 and mixed-LiDARs are in the "config" folder. The parameter naming *'user_config_path'* in launch files indicates such json file path.

@@ -317,6 +317,13 @@ else(ROS_EDITION STREQUAL "ROS2")
     EXECUTABLE ${PROJECT_NAME}_node
   )
 
+  install(PROGRAMS
+    src/pc2_custom_converter.py
+    RENAME pc2_custom_converter
+    DESTINATION lib/${PROJECT_NAME}
+  )
+
+
   if(BUILD_TESTING)
     find_package(ament_lint_auto REQUIRED)
     # the following line skips the linter which checks for copyrights
