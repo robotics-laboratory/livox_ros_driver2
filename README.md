@@ -147,7 +147,7 @@ All internal parameters of Livox_ros_driver2 are in the launch file. Below are d
 float32 x               # X axis, unit:m
 float32 y               # Y axis, unit:m
 float32 z               # Z axis, unit:m
-float32 intensity       # the value is reflectivity, 0.0~255.0
+float32 intensity       # the value is intensity, 0.0~255.0
 uint8   tag             # livox tag
 uint8   line            # laser number in lidar
 float64 timestamp       # Timestamp of point
@@ -174,7 +174,7 @@ uint32  offset_time     # offset time relative to the base time
 float32 x               # X axis, unit:m
 float32 y               # Y axis, unit:m
 float32 z               # Z axis, unit:m
-uint8   reflectivity    # reflectivity, 0~255
+uint8   intensity       # intensity, 0~255
 uint8   tag             # livox tag
 uint8   line            # laser number in lidar
 ```
@@ -183,7 +183,7 @@ uint8   line            # laser number in lidar
 
 &ensp;&ensp;&ensp;&ensp;Please refer to the pcl :: PointXYZI data structure in the point_types.hpp file of the PCL library.
 
-### 3.3 Check `pc2_custom_converter` (ROS2)
+### 3.3 Check `pc2_custom_bag_converter` (ROS2)
 
 Build the package first:
 
@@ -194,54 +194,25 @@ colcon build --packages-select livox_ros_driver2
 source install/setup.bash
 ```
 
-Run converter (PointCloud2 -> CustomMsg):
+Run simple converter (rewrite `/livox/lidar` to PointCloud2 field order:
+`x,y,z,time,intensity,tag,line`):
 
 ```shell
 source /opt/ros/jazzy/setup.bash
 source ~/ws_livox/install/setup.bash
-ros2 run livox_ros_driver2 pc2_custom_converter --ros-args \
-  -p mode:=pc2cust -p pc2_layout:=custommsg \
-  -p pc2_topic:=/livox/lidar \
-  -p custom_topic:=/livox/custom
+ros2 run livox_ros_driver2 pc2_custom_bag_converter \
+  --input ~/share/stepa-dataset-2506_7_0.mcap \
+  --output ~/share/stepa-dataset-2506_7_0_fixed \
+  --lidar-topic /livox/lidar
 ```
 
-Run converter (CustomMsg -> PointCloud2 round-trip):
+Notes:
 
-```shell
-source /opt/ros/jazzy/setup.bash
-source ~/ws_livox/install/setup.bash
-ros2 run livox_ros_driver2 pc2_custom_converter --ros-args \
-  -p mode:=cust2pc \
-  -p pc2_layout:=custommsg \
-  -p pc2_topic:=/livox/lidar_roundtrip \
-  -p custom_topic:=/livox/custom
-```
-
-Run verifier (compare original and round-trip PointCloud2):
-
-```shell
-source /opt/ros/jazzy/setup.bash
-source ~/ws_livox/install/setup.bash
-ros2 run livox_ros_driver2 pc2_custom_converter --ros-args \
-  -p mode:=verify \
-  -p pc2_layout:=custommsg \
-  -p pc2_topic:=/livox/lidar \
-  -p verify_topic:=/livox/lidar_roundtrip \
-  -p verify_tolerance:=0.0
-```
-
-Play your bag (in another terminal):
-
-```shell
-source /opt/ros/jazzy/setup.bash
-source ~/fastlio2_ros2_ws/install/setup.bash
-ros2 bag play ~/share/stepa-dataset-2506_7_0.mcap --clock --exclude-topics /tf /tf_static
-```
-
-Expected result:
-
-* `verify mismatch` errors should not appear.
-* `verify stats` should show `mismatch=0`.
+* This is an offline bag converter, not a ROS node.
+* Input and output must be different paths.
+* This simple tool keeps all topics and rewrites only the selected lidar topic.
+* Output PointCloud2 fields are always:
+  `x(float32), y(float32), z(float32), time(uint32), intensity(uint8), tag(uint8), line(uint8)`.
 
 ## 4. LiDAR config
 

@@ -227,6 +227,8 @@ else(ROS_EDITION STREQUAL "ROS2")
   find_package(std_msgs REQUIRED)
   find_package(builtin_interfaces REQUIRED)
   find_package(rosidl_default_generators REQUIRED)
+  find_package(rosbag2_cpp REQUIRED)
+  find_package(rosbag2_storage REQUIRED)
 
   # check apr
   find_package(PkgConfig)
@@ -282,6 +284,7 @@ else(ROS_EDITION STREQUAL "ROS2")
   target_include_directories(${PROJECT_NAME} PRIVATE ${livox_sdk_INCLUDE_DIRS})
 
   # get include directories of custom msg headers
+  set(LIVOX_INTERFACES_INCLUDE_DIRECTORIES "")
   if(HUMBLE_ROS STREQUAL "humble")
     rosidl_get_typesupport_target(cpp_typesupport_target
     ${LIVOX_INTERFACES} "rosidl_typesupport_cpp")
@@ -290,6 +293,9 @@ else(ROS_EDITION STREQUAL "ROS2")
     set(LIVOX_INTERFACE_TARGET "${LIVOX_INTERFACES}__rosidl_typesupport_cpp")
     add_dependencies(${PROJECT_NAME} ${LIVOX_INTERFACES})
     get_target_property(LIVOX_INTERFACES_INCLUDE_DIRECTORIES ${LIVOX_INTERFACE_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+    if("${LIVOX_INTERFACES_INCLUDE_DIRECTORIES}" STREQUAL "LIVOX_INTERFACES_INCLUDE_DIRECTORIES-NOTFOUND")
+      set(LIVOX_INTERFACES_INCLUDE_DIRECTORIES "")
+    endif()
   endif()
 
   # include file direcotry
@@ -317,10 +323,28 @@ else(ROS_EDITION STREQUAL "ROS2")
     EXECUTABLE ${PROJECT_NAME}_node
   )
 
-  install(PROGRAMS
-    src/pc2_custom_converter.py
-    RENAME pc2_custom_converter
-    DESTINATION lib/${PROJECT_NAME}
+  add_executable(pc2_custom_bag_converter
+    src/pc2_custom_bag_converter.cpp
+  )
+  ament_target_dependencies(pc2_custom_bag_converter
+    rclcpp
+    sensor_msgs
+    std_msgs
+    builtin_interfaces
+    rosbag2_cpp
+    rosbag2_storage
+  )
+  target_include_directories(pc2_custom_bag_converter PUBLIC
+    src
+  )
+  if(HUMBLE_ROS STREQUAL "humble")
+    target_link_libraries(pc2_custom_bag_converter "${cpp_typesupport_target}")
+  else()
+    add_dependencies(pc2_custom_bag_converter ${LIVOX_INTERFACES})
+    target_link_libraries(pc2_custom_bag_converter ${LIVOX_INTERFACE_TARGET})
+  endif()
+  install(TARGETS pc2_custom_bag_converter
+    RUNTIME DESTINATION lib/${PROJECT_NAME}
   )
 
 
