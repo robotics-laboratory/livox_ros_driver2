@@ -19,13 +19,18 @@
 #include <rosbag2_storage/serialized_bag_message.hpp>
 #include <rosbag2_storage/storage_options.hpp>
 #include <rosbag2_storage/topic_metadata.hpp>
+#include <rosidl_runtime_cpp/traits.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/point_field.hpp>
+
+#include "include/livox_pc2_layout.h"
+#include "lddc.h"
 
 namespace {
 
 using PointCloud2 = sensor_msgs::msg::PointCloud2;
-using PointField = sensor_msgs::msg::PointField;
+using CustomMsg = livox_ros::CustomMsg;
+using LivoxPC2Point = livox_ros::LivoxPC2Point;
 
 struct Options {
   std::string input_uri;
@@ -34,22 +39,7 @@ struct Options {
   std::string lidar_topic = "/livox/lidar";
 };
 
-struct FieldSpec {
-  std::string name;
-  uint32_t offset;
-  uint8_t datatype;
-  uint32_t count;
-};
-
-struct __attribute__((packed)) OutPoint {
-  float x;
-  float y;
-  float z;
-  uint32_t time;
-  uint8_t intensity;
-  uint8_t tag;
-  uint8_t line;
-};
+const char kPc2Type[] = "sensor_msgs/msg/PointCloud2";
 
 void PrintUsage() {
   std::cout
@@ -101,35 +91,8 @@ uint64_t TimeToNs(const builtin_interfaces::msg::Time &stamp) {
   return static_cast<uint64_t>(stamp.sec) * 1000000000ULL + static_cast<uint64_t>(stamp.nanosec);
 }
 
-std::vector<FieldSpec> ExpectedOldFields() {
-  return {
-      {"x", 0, PointField::FLOAT32, 1},
-      {"y", 4, PointField::FLOAT32, 1},
-      {"z", 8, PointField::FLOAT32, 1},
-      {"intensity", 12, PointField::FLOAT32, 1},
-      {"tag", 16, PointField::UINT8, 1},
-      {"line", 17, PointField::UINT8, 1},
-      {"timestamp", 18, PointField::FLOAT64, 1},
-  };
-}
-
-bool MatchFields(const std::vector<PointField> &fields, const std::vector<FieldSpec> &expected,
-                 std::string &error) {
-  if (fields.size() != expected.size()) {
-    error = "field count mismatch";
-    return false;
-  }
-
-  for (size_t i = 0; i < expected.size(); ++i) {
-    const auto &got = fields[i];
-    const auto &exp = expected[i];
-    if (got.name != exp.name || got.offset != exp.offset || got.datatype != exp.datatype ||
-        got.count != exp.count) {
-      error = "field mismatch at index " + std::to_string(i);
-      return false;
-    }
-  }
-  return true;
+bool IsCustomMsgType(const std::string &type_name) {
+  return type_name == rosidl_generator_traits::name<CustomMsg>();
 }
 
 template <typename T>
@@ -139,14 +102,57 @@ T ReadScalar(const uint8_t *data) {
   return out;
 }
 
-PointCloud2 ConvertOldLidarToNewLidar(const PointCloud2 &input) {
-  std::string error;
-  if (!MatchFields(input.fields, ExpectedOldFields(), error)) {
-    throw std::runtime_error("Input /livox/lidar layout not supported: " + error);
+bool MatchNewLivoxPc2Layout(const PointCloud2 &cloud) {
+  if (cloud.fields.size() != livox_ros::kLivoxPc2FieldCount) {
+    return false;
+  }
+  for (size_t i = 0; i < livox_ros::kLivoxPc2FieldCount; ++i) {
+    const auto &f = cloud.fields[i];
+    const auto &exp = livox_ros::kLivoxPc2Fields[i];
+    if (f.name != exp.name || f.offset != exp.offset || f.datatype != exp.datatype || f.count != exp.count) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool MatchOldLivoxPc2Layout(const PointCloud2 &cloud) {
+  if (cloud.fields.size() != 7) {
+    return false;
   }
 
+  const auto &f0 = cloud.fields[0];
+  const auto &f1 = cloud.fields[1];
+  const auto &f2 = cloud.fields[2];
+  const auto &f3 = cloud.fields[3];
+  const auto &f4 = cloud.fields[4];
+  const auto &f5 = cloud.fields[5];
+  const auto &f6 = cloud.fields[6];
+
+  return f0.name == "x" && f0.offset == 0 && f0.datatype == sensor_msgs::msg::PointField::FLOAT32 && f0.count == 1 &&
+         f1.name == "y" && f1.offset == 4 && f1.datatype == sensor_msgs::msg::PointField::FLOAT32 && f1.count == 1 &&
+         f2.name == "z" && f2.offset == 8 && f2.datatype == sensor_msgs::msg::PointField::FLOAT32 && f2.count == 1 &&
+         f3.name == "intensity" && f3.offset == 12 && f3.datatype == sensor_msgs::msg::PointField::FLOAT32 && f3.count == 1 &&
+         f4.name == "tag" && f4.offset == 16 && f4.datatype == sensor_msgs::msg::PointField::UINT8 && f4.count == 1 &&
+         f5.name == "line" && f5.offset == 17 && f5.datatype == sensor_msgs::msg::PointField::UINT8 && f5.count == 1 &&
+         f6.name == "timestamp" && f6.offset == 18 && f6.datatype == sensor_msgs::msg::PointField::FLOAT64 && f6.count == 1;
+}
+
+void ValidateNewLivoxPc2Layout(const PointCloud2 &cloud) {
+  if (!MatchNewLivoxPc2Layout(cloud)) {
+    throw std::runtime_error("Input PointCloud2 is not in new Livox layout");
+  }
+  if (cloud.point_step < sizeof(LivoxPC2Point)) {
+    throw std::runtime_error("Input PointCloud2 point_step is too small for new layout");
+  }
+}
+
+PointCloud2 ConvertOldLivoxPc2ToNewLivoxPc2(const PointCloud2 &input) {
+  if (!MatchOldLivoxPc2Layout(input)) {
+    throw std::runtime_error("Input PointCloud2 is not in old Livox layout");
+  }
   if (input.point_step < 26) {
-    throw std::runtime_error("Input point_step is too small for old layout");
+    throw std::runtime_error("Input PointCloud2 point_step is too small for old layout");
   }
 
   PointCloud2 out;
@@ -155,51 +161,20 @@ PointCloud2 ConvertOldLidarToNewLidar(const PointCloud2 &input) {
   out.width = input.width;
   out.is_bigendian = false;
   out.is_dense = input.is_dense;
-
-  out.fields.resize(7);
-  out.fields[0].name = "x";
-  out.fields[0].offset = 0;
-  out.fields[0].datatype = PointField::FLOAT32;
-  out.fields[0].count = 1;
-  out.fields[1].name = "y";
-  out.fields[1].offset = 4;
-  out.fields[1].datatype = PointField::FLOAT32;
-  out.fields[1].count = 1;
-  out.fields[2].name = "z";
-  out.fields[2].offset = 8;
-  out.fields[2].datatype = PointField::FLOAT32;
-  out.fields[2].count = 1;
-  out.fields[3].name = "time";
-  out.fields[3].offset = 12;
-  out.fields[3].datatype = PointField::UINT32;
-  out.fields[3].count = 1;
-  out.fields[4].name = "intensity";
-  out.fields[4].offset = 16;
-  out.fields[4].datatype = PointField::UINT8;
-  out.fields[4].count = 1;
-  out.fields[5].name = "tag";
-  out.fields[5].offset = 17;
-  out.fields[5].datatype = PointField::UINT8;
-  out.fields[5].count = 1;
-  out.fields[6].name = "line";
-  out.fields[6].offset = 18;
-  out.fields[6].datatype = PointField::UINT8;
-  out.fields[6].count = 1;
-
-  out.point_step = sizeof(OutPoint);
+  livox_ros::InitLivoxPc2Fields(out.fields);
+  out.point_step = sizeof(LivoxPC2Point);
   out.row_step = out.point_step * out.width;
-  out.data.resize(out.row_step * std::max<uint32_t>(1U, out.height));
+  out.data.resize(static_cast<size_t>(out.row_step) * static_cast<size_t>(std::max<uint32_t>(1U, out.height)));
 
-  const auto base_time_ns = TimeToNs(input.header.stamp);
+  const uint64_t base_time_ns = TimeToNs(input.header.stamp);
   for (uint32_t row = 0; row < std::max<uint32_t>(1U, input.height); ++row) {
     const size_t in_row_start = static_cast<size_t>(row) * static_cast<size_t>(input.row_step);
     const size_t out_row_start = static_cast<size_t>(row) * static_cast<size_t>(out.row_step);
     for (uint32_t col = 0; col < input.width; ++col) {
       const size_t in_base = in_row_start + static_cast<size_t>(col) * static_cast<size_t>(input.point_step);
       const size_t out_base = out_row_start + static_cast<size_t>(col) * static_cast<size_t>(out.point_step);
-
-      if (in_base + 26 > input.data.size() || out_base + sizeof(OutPoint) > out.data.size()) {
-        throw std::runtime_error("Point data buffer size mismatch");
+      if (in_base + 26 > input.data.size() || out_base + sizeof(LivoxPC2Point) > out.data.size()) {
+        throw std::runtime_error("PointCloud2 data buffer size mismatch");
       }
 
       const float x = ReadScalar<float>(&input.data[in_base + 0]);
@@ -220,7 +195,7 @@ PointCloud2 ConvertOldLidarToNewLidar(const PointCloud2 &input) {
 
       const int intensity_i = std::max(0, std::min(255, static_cast<int>(intensity_f)));
 
-      OutPoint p{};
+      LivoxPC2Point p{};
       p.x = x;
       p.y = y;
       p.z = z;
@@ -228,8 +203,74 @@ PointCloud2 ConvertOldLidarToNewLidar(const PointCloud2 &input) {
       p.intensity = static_cast<uint8_t>(intensity_i);
       p.tag = tag;
       p.line = line;
+      std::memcpy(out.data.data() + out_base, &p, sizeof(LivoxPC2Point));
+    }
+  }
 
-      std::memcpy(out.data.data() + out_base, &p, sizeof(OutPoint));
+  return out;
+}
+
+PointCloud2 ConvertCustomMsgToPointCloud2(const CustomMsg &input) {
+  PointCloud2 out;
+  out.header = input.header;
+  out.height = 1;
+  out.width = static_cast<uint32_t>(input.points.size());
+  out.is_bigendian = false;
+  out.is_dense = true;
+  livox_ros::InitLivoxPc2Fields(out.fields);
+  out.point_step = sizeof(LivoxPC2Point);
+  out.row_step = out.point_step * out.width;
+  out.data.resize(static_cast<size_t>(out.row_step));
+
+  auto *out_points = reinterpret_cast<LivoxPC2Point *>(out.data.data());
+  for (size_t i = 0; i < input.points.size(); ++i) {
+    out_points[i].x = input.points[i].x;
+    out_points[i].y = input.points[i].y;
+    out_points[i].z = input.points[i].z;
+    out_points[i].time = input.points[i].offset_time;
+    out_points[i].intensity = input.points[i].reflectivity;
+    out_points[i].tag = input.points[i].tag;
+    out_points[i].line = input.points[i].line;
+  }
+
+  return out;
+}
+
+CustomMsg ConvertPointCloud2ToCustomMsg(const PointCloud2 &input) {
+  ValidateNewLivoxPc2Layout(input);
+
+  CustomMsg out;
+  out.header = input.header;
+  out.timebase = TimeToNs(input.header.stamp);
+  out.lidar_id = 0;
+  out.rsvd = {0, 0, 0};
+
+  const uint32_t height = std::max<uint32_t>(1U, input.height);
+  const uint64_t total_points_u64 = static_cast<uint64_t>(height) * static_cast<uint64_t>(input.width);
+  if (total_points_u64 > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())) {
+    throw std::runtime_error("Too many points for CustomMsg");
+  }
+  const uint32_t total_points = static_cast<uint32_t>(total_points_u64);
+  out.point_num = total_points;
+  out.points.resize(total_points);
+
+  uint32_t out_idx = 0;
+  for (uint32_t row = 0; row < height; ++row) {
+    const size_t row_start = static_cast<size_t>(row) * static_cast<size_t>(input.row_step);
+    for (uint32_t col = 0; col < input.width; ++col) {
+      const size_t base = row_start + static_cast<size_t>(col) * static_cast<size_t>(input.point_step);
+      if (base + sizeof(LivoxPC2Point) > input.data.size()) {
+        throw std::runtime_error("PointCloud2 data buffer size mismatch");
+      }
+      const auto *p = reinterpret_cast<const LivoxPC2Point *>(input.data.data() + base);
+      out.points[out_idx].offset_time = p->time;
+      out.points[out_idx].x = p->x;
+      out.points[out_idx].y = p->y;
+      out.points[out_idx].z = p->z;
+      out.points[out_idx].reflectivity = p->intensity;
+      out.points[out_idx].tag = p->tag;
+      out.points[out_idx].line = p->line;
+      ++out_idx;
     }
   }
 
@@ -301,8 +342,40 @@ int main(int argc, char **argv) {
     out_storage.storage_id = opts.storage_id;
     writer.open(out_storage, converter_opts);
 
-    for (const auto &topic : reader.get_all_topics_and_types()) {
+    const auto all_topics = reader.get_all_topics_and_types();
+    std::string lidar_input_type;
+    for (const auto &topic : all_topics) {
+      if (topic.name == opts.lidar_topic) {
+        lidar_input_type = topic.type;
+        break;
+      }
+    }
+    if (lidar_input_type.empty()) {
+      throw std::runtime_error("Lidar topic not found in bag: " + opts.lidar_topic);
+    }
+
+    enum class ConvertMode {
+      kCustomToPc2,
+      kPc2ToCustom
+    };
+
+    ConvertMode mode;
+    std::string lidar_output_type;
+    if (IsCustomMsgType(lidar_input_type)) {
+      mode = ConvertMode::kCustomToPc2;
+      lidar_output_type = kPc2Type;
+    } else if (lidar_input_type == kPc2Type) {
+      mode = ConvertMode::kPc2ToCustom;
+      lidar_output_type = rosidl_generator_traits::name<CustomMsg>();
+    } else {
+      throw std::runtime_error("Unsupported lidar topic type: " + lidar_input_type);
+    }
+
+    for (const auto &topic : all_topics) {
       rosbag2_storage::TopicMetadata meta = topic;
+      if (meta.name == opts.lidar_topic) {
+        meta.type = lidar_output_type;
+      }
       writer.create_topic(meta);
     }
 
@@ -317,15 +390,34 @@ int main(int argc, char **argv) {
         continue;
       }
 
-      const auto old_pc2 = DeserializeMessage<PointCloud2>(bag_message);
-      const auto new_pc2 = ConvertOldLidarToNewLidar(old_pc2);
-      auto out = SerializeMessage(new_pc2, opts.lidar_topic, bag_message->recv_timestamp, bag_message->send_timestamp);
-      writer.write(out);
+      if (mode == ConvertMode::kCustomToPc2) {
+        const auto in_custom = DeserializeMessage<CustomMsg>(bag_message);
+        const auto out_pc2 = ConvertCustomMsgToPointCloud2(in_custom);
+        auto out_msg = SerializeMessage(
+            out_pc2, opts.lidar_topic, bag_message->recv_timestamp, bag_message->send_timestamp);
+        writer.write(out_msg);
+      } else {
+        const auto in_pc2 = DeserializeMessage<PointCloud2>(bag_message);
+        PointCloud2 normalized_pc2;
+        if (MatchNewLivoxPc2Layout(in_pc2)) {
+          normalized_pc2 = in_pc2;
+        } else if (MatchOldLivoxPc2Layout(in_pc2)) {
+          normalized_pc2 = ConvertOldLivoxPc2ToNewLivoxPc2(in_pc2);
+        } else {
+          throw std::runtime_error("Unsupported PointCloud2 field layout");
+        }
+        const auto out_custom = ConvertPointCloud2ToCustomMsg(normalized_pc2);
+        auto out_msg = SerializeMessage(
+            out_custom, opts.lidar_topic, bag_message->recv_timestamp, bag_message->send_timestamp);
+        writer.write(out_msg);
+      }
       ++converted;
     }
 
     std::cout << "Done. Total messages read: " << total_messages
-              << ", converted /livox/lidar messages: " << converted << std::endl;
+              << ", converted " << opts.lidar_topic << " messages: " << converted
+              << ", mode: " << (mode == ConvertMode::kCustomToPc2 ? "CustomMsg->PointCloud2" : "PointCloud2->CustomMsg")
+              << std::endl;
   } catch (const std::exception &e) {
     std::cerr << "pc2_custom_bag_converter failed: " << e.what() << std::endl;
     rclcpp::shutdown();

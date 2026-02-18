@@ -25,6 +25,7 @@
 #include "lddc.h"
 #include "comm/ldq.h"
 #include "comm/comm.h"
+#include "include/livox_pc2_layout.h"
 
 #include <inttypes.h>
 #include <iostream>
@@ -38,17 +39,6 @@
 #include "lds_lidar.h"
 
 namespace livox_ros {
-namespace {
-struct __attribute__((packed)) LivoxPointCustom {
-  float x;
-  float y;
-  float z;
-  uint32_t time;
-  uint8_t intensity;
-  uint8_t tag;
-  uint8_t line;
-};
-}  // namespace
 
 /** Lidar Data Distribute Control--------------------------------------------*/
 #ifdef BUILDING_ROS1
@@ -274,36 +264,8 @@ void Lddc::InitPointcloud2MsgHeader(PointCloud2& cloud) {
   cloud.header.frame_id.assign(frame_id_);
   cloud.height = 1;
   cloud.width = 0;
-  cloud.fields.resize(7);
-  cloud.fields[0].offset = 0;
-  cloud.fields[0].name = "x";
-  cloud.fields[0].count = 1;
-  cloud.fields[0].datatype = PointField::FLOAT32;
-  cloud.fields[1].offset = 4;
-  cloud.fields[1].name = "y";
-  cloud.fields[1].count = 1;
-  cloud.fields[1].datatype = PointField::FLOAT32;
-  cloud.fields[2].offset = 8;
-  cloud.fields[2].name = "z";
-  cloud.fields[2].count = 1;
-  cloud.fields[2].datatype = PointField::FLOAT32;
-  cloud.fields[3].offset = 12;
-  cloud.fields[3].name = "time";
-  cloud.fields[3].count = 1;
-  cloud.fields[3].datatype = PointField::UINT32;
-  cloud.fields[4].offset = 16;
-  cloud.fields[4].name = "intensity";
-  cloud.fields[4].count = 1;
-  cloud.fields[4].datatype = PointField::UINT8;
-  cloud.fields[5].offset = 17;
-  cloud.fields[5].name = "tag";
-  cloud.fields[5].count = 1;
-  cloud.fields[5].datatype = PointField::UINT8;
-  cloud.fields[6].offset = 18;
-  cloud.fields[6].name = "line";
-  cloud.fields[6].count = 1;
-  cloud.fields[6].datatype = PointField::UINT8;
-  cloud.point_step = sizeof(LivoxPointCustom);
+  InitLivoxPc2Fields(cloud.fields);
+  cloud.point_step = sizeof(LivoxPC2Point);
 }
 
 void Lddc::InitPointcloud2Msg(const StoragePacket& pkg, PointCloud2& cloud, uint64_t& timestamp) {
@@ -325,20 +287,18 @@ void Lddc::InitPointcloud2Msg(const StoragePacket& pkg, PointCloud2& cloud, uint
       cloud.header.stamp = rclcpp::Time(timestamp);
   #endif
 
-  std::vector<LivoxPointCustom> points;
+  std::vector<LivoxPC2Point> points(pkg.points_num);
   for (size_t i = 0; i < pkg.points_num; ++i) {
-    LivoxPointCustom point;
-    point.x = pkg.points[i].x;
-    point.y = pkg.points[i].y;
-    point.z = pkg.points[i].z;
-    point.time = static_cast<uint32_t>(pkg.points[i].offset_time - pkg.base_time);
-    point.intensity = static_cast<uint8_t>(pkg.points[i].intensity);
-    point.tag = pkg.points[i].tag;
-    point.line = pkg.points[i].line;
-    points.push_back(std::move(point));
+    points[i].x = pkg.points[i].x;
+    points[i].y = pkg.points[i].y;
+    points[i].z = pkg.points[i].z;
+    points[i].time = static_cast<uint32_t>(pkg.points[i].offset_time - pkg.base_time);
+    points[i].intensity = static_cast<uint8_t>(pkg.points[i].intensity);
+    points[i].tag = pkg.points[i].tag;
+    points[i].line = pkg.points[i].line;
   }
-  cloud.data.resize(pkg.points_num * sizeof(LivoxPointCustom));
-  memcpy(cloud.data.data(), points.data(), pkg.points_num * sizeof(LivoxPointCustom));
+  cloud.data.resize(pkg.points_num * sizeof(LivoxPC2Point));
+  memcpy(cloud.data.data(), points.data(), pkg.points_num * sizeof(LivoxPC2Point));
 }
 
 void Lddc::PublishPointcloud2Data(const uint8_t index, const uint64_t timestamp, const PointCloud2& cloud) {
@@ -398,7 +358,7 @@ void Lddc::FillPointsToCustomMsg(CustomMsg& livox_msg, const StoragePacket& pkg)
     point.x = points[i].x;
     point.y = points[i].y;
     point.z = points[i].z;
-    point.intensity = points[i].intensity;
+    point.reflectivity = points[i].intensity;
     point.tag = points[i].tag;
     point.line = points[i].line;
     point.offset_time = static_cast<uint32_t>(points[i].offset_time - pkg.base_time);

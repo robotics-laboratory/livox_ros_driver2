@@ -283,20 +283,12 @@ else(ROS_EDITION STREQUAL "ROS2")
 
   target_include_directories(${PROJECT_NAME} PRIVATE ${livox_sdk_INCLUDE_DIRS})
 
-  # get include directories of custom msg headers
-  set(LIVOX_INTERFACES_INCLUDE_DIRECTORIES "")
-  if(HUMBLE_ROS STREQUAL "humble")
-    rosidl_get_typesupport_target(cpp_typesupport_target
+  # ROS2 Iron+ only: use rosidl typesupport target directly.
+  rosidl_get_typesupport_target(cpp_typesupport_target
     ${LIVOX_INTERFACES} "rosidl_typesupport_cpp")
-    target_link_libraries(${PROJECT_NAME} "${cpp_typesupport_target}")
-  else()
-    set(LIVOX_INTERFACE_TARGET "${LIVOX_INTERFACES}__rosidl_typesupport_cpp")
-    add_dependencies(${PROJECT_NAME} ${LIVOX_INTERFACES})
-    get_target_property(LIVOX_INTERFACES_INCLUDE_DIRECTORIES ${LIVOX_INTERFACE_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
-    if("${LIVOX_INTERFACES_INCLUDE_DIRECTORIES}" STREQUAL "LIVOX_INTERFACES_INCLUDE_DIRECTORIES-NOTFOUND")
-      set(LIVOX_INTERFACES_INCLUDE_DIRECTORIES "")
-    endif()
-  endif()
+  set(LIVOX_INTERFACE_TARGET "${cpp_typesupport_target}")
+  set(LIVOX_INTERFACES_INCLUDE_DIRECTORIES "")
+  target_link_libraries(${PROJECT_NAME} "${cpp_typesupport_target}")
 
   # include file direcotry
   target_include_directories(${PROJECT_NAME} PUBLIC
@@ -328,6 +320,7 @@ else(ROS_EDITION STREQUAL "ROS2")
   )
   ament_target_dependencies(pc2_custom_bag_converter
     rclcpp
+    pcl_conversions
     sensor_msgs
     std_msgs
     builtin_interfaces
@@ -337,12 +330,7 @@ else(ROS_EDITION STREQUAL "ROS2")
   target_include_directories(pc2_custom_bag_converter PUBLIC
     src
   )
-  if(HUMBLE_ROS STREQUAL "humble")
-    target_link_libraries(pc2_custom_bag_converter "${cpp_typesupport_target}")
-  else()
-    add_dependencies(pc2_custom_bag_converter ${LIVOX_INTERFACES})
-    target_link_libraries(pc2_custom_bag_converter ${LIVOX_INTERFACE_TARGET})
-  endif()
+  target_link_libraries(pc2_custom_bag_converter "${cpp_typesupport_target}")
   install(TARGETS pc2_custom_bag_converter
     RUNTIME DESTINATION lib/${PROJECT_NAME}
   )
