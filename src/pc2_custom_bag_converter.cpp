@@ -290,16 +290,14 @@ template <typename MsgT>
 std::shared_ptr<rosbag2_storage::SerializedBagMessage> SerializeMessage(
     const MsgT &message,
     const std::string &topic,
-    rcutils_time_point_value_t recv_timestamp,
-    rcutils_time_point_value_t send_timestamp) {
+    rcutils_time_point_value_t time_stamp) {
   rclcpp::Serialization<MsgT> serializer;
   rclcpp::SerializedMessage serialized;
   serializer.serialize_message(&message, &serialized);
 
   auto out = std::make_shared<rosbag2_storage::SerializedBagMessage>();
   out->topic_name = topic;
-  out->recv_timestamp = recv_timestamp;
-  out->send_timestamp = send_timestamp;
+  out->time_stamp = time_stamp;
 
   auto buffer = std::shared_ptr<rcutils_uint8_array_t>(new rcutils_uint8_array_t,
       [](rcutils_uint8_array_t *ptr) {
@@ -394,7 +392,7 @@ int main(int argc, char **argv) {
         const auto in_custom = DeserializeMessage<CustomMsg>(bag_message);
         const auto out_pc2 = ConvertCustomMsgToPointCloud2(in_custom);
         auto out_msg = SerializeMessage(
-            out_pc2, opts.lidar_topic, bag_message->recv_timestamp, bag_message->send_timestamp);
+            out_pc2, opts.lidar_topic, bag_message->time_stamp);
         writer.write(out_msg);
       } else {
         const auto in_pc2 = DeserializeMessage<PointCloud2>(bag_message);
@@ -408,7 +406,7 @@ int main(int argc, char **argv) {
         }
         const auto out_custom = ConvertPointCloud2ToCustomMsg(normalized_pc2);
         auto out_msg = SerializeMessage(
-            out_custom, opts.lidar_topic, bag_message->recv_timestamp, bag_message->send_timestamp);
+            out_custom, opts.lidar_topic, bag_message->time_stamp);
         writer.write(out_msg);
       }
       ++converted;

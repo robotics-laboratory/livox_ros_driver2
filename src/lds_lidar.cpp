@@ -127,9 +127,7 @@ bool LdsLidar::ParseSummaryConfig() {
 }
 
 bool LdsLidar::InitLivoxLidar() {
-#ifdef BUILDING_ROS2
   DisableLivoxSdkConsoleLogger();
-#endif
 
   // parse user config
   LivoxLidarConfigParser parser(path_);
@@ -199,6 +197,11 @@ int LdsLidar::DeInitLdsLidar(void) {
   if (!is_initialized_) {
     printf("LiDAR data source is not exit");
     return -1;
+  }
+
+  if (lidars_[0].connect_state == kConnectStateSampling) {
+      printf("Shutting down lidar (handle: %d)\n", lidars_[0].handle);
+      SetLivoxLidarWorkMode(lidars_[0].handle, kLivoxLidarWakeUp, nullptr, nullptr);
   }
 
   if (lidar_summary_info_.lidar_type & kLivoxLidarType) {

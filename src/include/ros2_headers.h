@@ -22,7 +22,7 @@
 // SOFTWARE.
 //
 
-// Denoting headers specifically used for building ROS1 Driver.
+// Denoting headers specifically used for building ROS2 Driver.
 
 #ifndef ROS2_HEADERS_H_
 #define ROS2_HEADERS_H_
