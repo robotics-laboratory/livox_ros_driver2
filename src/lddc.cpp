@@ -118,33 +118,14 @@ void Lddc::PollingLidarPointCloudData(uint8_t index, LidarDevice *lidar) {
   if (p_queue == nullptr || p_queue->storage_packet == nullptr) {
     return;
   }
- 
 
   while (!lds_->IsRequestExit() && !QueueIsEmpty(p_queue)) {
-    DoublePublish(p_queue, index);
-  }
-}
-
-
-void Lddc::DoublePublish(LidarDataQueue* queue, uint8_t index) {
-    while (!QueueIsEmpty(queue)) {
-        StoragePacket pkg;
-        QueuePop(queue, &pkg);
-        if (pkg.points.empty()) {
-            printf("Publish point cloud2 failed, the pkg points is empty.\n");
-            continue;
-        }
-
-        PointCloud2 cloud;
-        uint64_t timestamp = 0;
-        InitPointcloud2Msg(pkg, cloud, timestamp);
-        PublishPointcloud2Data(index, timestamp, cloud);
-
-        CustomMsg livox_msg;
-        InitCustomMsg(livox_msg, pkg, index);
-        FillPointsToCustomMsg(livox_msg, pkg);
-        PublishCustomPointData(livox_msg, index);
+    if (kPointCloud2Msg == transfer_format_) {
+      PublishPointcloud2(p_queue, index);
+    } else if (kLivoxCustomMsg == transfer_format_) {
+      PublishCustomPointcloud(p_queue, index);
     }
+  }
 }
 
 
@@ -192,19 +173,6 @@ void Lddc::PublishCustomPointcloud(LidarDataQueue *queue, uint8_t index) {
     FillPointsToCustomMsg(livox_msg, pkg);
     PublishCustomPointData(livox_msg, index);
   }
-}
-
-/* for pcl::pxyzi */
-void Lddc::PublishPclMsg(LidarDataQueue *queue, uint8_t index) {
-  static bool first_log = true;
-  if (first_log) {
-    std::cout << "error: message type 'pcl::PointCloud' is NOT supported in ROS2, "
-              << "please modify the 'xfer_format' field in the launch file"
-              << std::endl;
-  }
-  first_log = false;
-  (void)queue;
-  (void)index;
 }
 
 void Lddc::InitPointcloud2MsgHeader(PointCloud2& cloud) {
@@ -312,32 +280,6 @@ std::shared_ptr<rclcpp::PublisherBase> Lddc::GetCurrentPublisher2(uint8_t handle
 }
 
 
-void Lddc::InitPclMsg(const StoragePacket& pkg, PointCloud& cloud, uint64_t& timestamp) {
-  (void)pkg;
-  (void)cloud;
-  (void)timestamp;
-  std::cout << "warning: pcl::PointCloud is not supported in ROS2, "
-            << "please check code logic" 
-            << std::endl;
-}
-
-void Lddc::FillPointsToPclMsg(const StoragePacket& pkg, PointCloud& pcl_msg) {
-  (void)pkg;
-  (void)pcl_msg;
-  std::cout << "warning: pcl::PointCloud is not supported in ROS2, "
-            << "please check code logic" 
-            << std::endl;
-}
-
-void Lddc::PublishPclData(const uint8_t index, const uint64_t timestamp, const PointCloud& cloud) {
-  (void)index;
-  (void)timestamp;
-  (void)cloud;
-  std::cout << "warning: pcl::PointCloud is not supported in ROS2, "
-            << "please check code logic" 
-            << std::endl;
-}
-
 void Lddc::InitImuMsg(const ImuData& imu_data, ImuMsg& imu_msg, uint64_t& timestamp) {
   imu_msg.header.frame_id = "livox_frame";
 
@@ -380,15 +322,7 @@ std::shared_ptr<rclcpp::PublisherBase> Lddc::CreatePublisher(uint8_t msg_type,
       DRIVER_INFO(*cur_node_,
           "%s publish use livox custom format", topic_name.c_str());
       return cur_node_->create_publisher<CustomMsg>(topic_name, queue_size);
-    }
-#if 0
-    else if (kPclPxyziMsg == msg_type)  {
-      DRIVER_INFO(*cur_node_,
-          "%s publish use pcl PointXYZI format", topic_name.c_str());
-      return cur_node_->create_publisher<PointCloud>(topic_name, queue_size);
-    }
-#endif
-    else if (kLivoxImuMsg == msg_type)  {
+    } else if (kLivoxImuMsg == msg_type)  {
       DRIVER_INFO(*cur_node_,
           "%s publish use imu format", topic_name.c_str());
       return cur_node_->create_publisher<ImuMsg>(topic_name,

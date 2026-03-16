@@ -28,9 +28,9 @@
 #include "comm/comm.h"
 #include "livox_lidar_def.h"
 
-#include "rapidjson/document.h"
-#include "rapidjson/filereadstream.h"
-#include "rapidjson/stringbuffer.h"
+#include <rapidjson/document.h>
+#include <rapidjson/filereadstream.h>
+#include <rapidjson/stringbuffer.h>
 
 #include <iostream>
 #include <string>

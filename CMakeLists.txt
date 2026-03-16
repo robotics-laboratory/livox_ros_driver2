@@ -13,8 +13,6 @@
     set(CMAKE_CXX_STANDARD 14)
   endif()
 
-  list(INSERT CMAKE_MODULE_PATH 0 "${PROJECT_SOURCE_DIR}/cmake/modules")
-
   if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter)
   endif()
@@ -30,20 +28,12 @@
   # find_package(<dependency> REQUIRED)
   find_package(ament_cmake_auto REQUIRED)
   ament_auto_find_build_dependencies()
-  find_package(PCL REQUIRED)
   find_package(std_msgs REQUIRED)
   find_package(builtin_interfaces REQUIRED)
   find_package(rosidl_default_generators REQUIRED)
   find_package(rosbag2_cpp REQUIRED)
   find_package(rosbag2_storage REQUIRED)
 
-  # check apr
-  find_package(PkgConfig)
-  pkg_check_modules(APR apr-1)
-  if (APR_FOUND)
-    message(${APR_INCLUDE_DIRS})
-    message(${APR_LIBRARIES})
-  endif (APR_FOUND)
 
   # generate custom msg headers
   set(LIVOX_INTERFACES livox_interfaces2)
@@ -62,9 +52,9 @@
     NAMES "livox_lidar_api.h" "livox_lidar_def.h"
     REQUIRED)
 
-  ## PCL library
-  link_directories(${PCL_LIBRARY_DIRS})
-  add_definitions(${PCL_DEFINITIONS})
+  find_path(RAPIDJSON_INCLUDE_DIR
+    NAMES rapidjson/document.h
+    REQUIRED)
 
   # livox ros2 driver target
   ament_auto_add_library(${PROJECT_NAME} SHARED
@@ -99,11 +89,9 @@
 
   # include file direcotry
   target_include_directories(${PROJECT_NAME} PUBLIC
-    ${PCL_INCLUDE_DIRS}
-    ${APR_INCLUDE_DIRS}
     ${LIVOX_LIDAR_SDK_INCLUDE_DIR}
+    ${RAPIDJSON_INCLUDE_DIR}
     ${LIVOX_INTERFACES_INCLUDE_DIRECTORIES}   # for custom msgs
-    3rdparty
     src
   )
 
@@ -113,8 +101,6 @@
     ${LIVOX_INTERFACE_TARGET}   # for custom msgs
     ${PPT_LIBRARY}
     ${Boost_LIBRARY}
-    ${PCL_LIBRARIES}
-    ${APR_LIBRARIES}
   )
 
   rclcpp_components_register_node(${PROJECT_NAME}
@@ -122,25 +108,25 @@
     EXECUTABLE ${PROJECT_NAME}_node
   )
 
-#  add_executable(pc2_custom_bag_converter
-#    src/pc2_custom_bag_converter.cpp
-#  )
-#  ament_target_dependencies(pc2_custom_bag_converter
-#    rclcpp
-#    pcl_conversions
-#    sensor_msgs
-#    std_msgs
-#    builtin_interfaces
-#    rosbag2_cpp
-#    rosbag2_storage
-#  )
-#  target_include_directories(pc2_custom_bag_converter PUBLIC
-#    src
-#  )
-#  target_link_libraries(pc2_custom_bag_converter "${cpp_typesupport_target}")
-#  install(TARGETS pc2_custom_bag_converter
-#    RUNTIME DESTINATION lib/${PROJECT_NAME}
-#  )
+ add_executable(pc2_custom_bag_converter
+   src/pc2_custom_bag_converter.cpp
+ )
+ ament_target_dependencies(pc2_custom_bag_converter
+   rclcpp
+   sensor_msgs
+   std_msgs
+   builtin_interfaces
+   rosbag2_cpp
+   rosbag2_storage
+ )
+ 
+ target_include_directories(pc2_custom_bag_converter PUBLIC
+   src
+ )
+ target_link_libraries(pc2_custom_bag_converter "${cpp_typesupport_target}")
+ install(TARGETS pc2_custom_bag_converter
+   RUNTIME DESTINATION lib/${PROJECT_NAME}
+ )
 
 
   if(BUILD_TESTING)
@@ -155,6 +141,5 @@
   endif()
 
   ament_auto_package(INSTALL_TO_SHARE
-    config
     launch
   )

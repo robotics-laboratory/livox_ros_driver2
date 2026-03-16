@@ -199,6 +199,8 @@ int LdsLidar::DeInitLdsLidar(void) {
     return -1;
   }
 
+  // Assuming there's only one lidar so checking index 0 only
+  // https://github.com/Livox-SDK/livox_ros_driver2/issues/103#issuecomment-1899871800
   if (lidars_[0].connect_state == kConnectStateSampling) {
       printf("Shutting down lidar (handle: %d)\n", lidars_[0].handle);
       SetLivoxLidarWorkMode(lidars_[0].handle, kLivoxLidarWakeUp, nullptr, nullptr);

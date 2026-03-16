@@ -301,7 +301,8 @@ std::shared_ptr<rosbag2_storage::SerializedBagMessage> SerializeMessage(
 
   auto buffer = std::shared_ptr<rcutils_uint8_array_t>(new rcutils_uint8_array_t,
       [](rcutils_uint8_array_t *ptr) {
-        (void)rcutils_uint8_array_fini(ptr);
+        const auto ret = rcutils_uint8_array_fini(ptr);
+        (void)ret;
         delete ptr;
       });
   *buffer = rcutils_get_zero_initialized_uint8_array();
