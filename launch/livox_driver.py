@@ -19,7 +19,7 @@ NODE_PARAMS = {
     "frame_id": ...,  # from launch params
     "publish_freq": ...,  # from launch params
     "user_config_path": ...,  # generated in runtime
-    "xfer_format": 0,  # 0: Pointcloud2(PointXYZRTL), 1: Custom format
+    "xfer_format": 1,  # 0: Pointcloud2(PointXYZRTL), 1: Custom format
     "multi_topic": 0,  # 0: all lidars same topic, 1: one lidar one topic
     "data_src": 0,  # keep default
     "output_data_type": 0,  # keep default

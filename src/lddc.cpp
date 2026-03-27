@@ -261,7 +261,7 @@ void Lddc::FillPointsToCustomMsg(CustomMsg& livox_msg, const StoragePacket& pkg)
 }
 
 void Lddc::PublishCustomPointData(const CustomMsg& livox_msg, const uint8_t index) {
-  Publisher<CustomMsg>::SharedPtr publisher_ptr = std::dynamic_pointer_cast<Publisher<CustomMsg>>(GetCurrentPublisher2(index));
+  Publisher<CustomMsg>::SharedPtr publisher_ptr = std::dynamic_pointer_cast<Publisher<CustomMsg>>(GetCurrentPublisher(index));
 
   if (kOutputToRos == output_type_) {
     publisher_ptr->publish(livox_msg);
