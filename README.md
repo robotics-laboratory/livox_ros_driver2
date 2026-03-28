@@ -133,7 +133,7 @@ All internal parameters of Livox_ros_driver2 are in the launch file. Below are d
 | ------------ | ------------------------------------------------------------ | ------- |
 | publish_freq | Set the frequency of point cloud publish <br>Floating-point data type, recommended values 5.0, 10.0, 20.0, 50.0, etc. The maximum publish frequency is 100.0 Hz.| 10.0    |
 | multi_topic  | If the LiDAR device has an independent topic to publish pointcloud data<br>0 -- All LiDAR devices use the same topic to publish pointcloud data<br>1 -- Each LiDAR device has its own topic to publish point cloud data | 0       |
-| xfer_format  | Set pointcloud format<br>0 -- Livox pointcloud2(PointXYZRTLT) pointcloud format<br>1 -- Livox customized pointcloud format<br>2 -- Standard pointcloud2 (pcl :: PointXYZI) pointcloud format in the PCL library (just for ROS) | 0       |
+| xfer_format  | Set pointcloud format<br>0 -- Livox PointCloud2 format (`x,y,z,time,intensity,tag,line`)<br>1 -- Livox customized pointcloud format<br>2 -- Standard pointcloud2 (pcl :: PointXYZI) pointcloud format in the PCL library (just for ROS) | 0       |
 
   **Note :**
 
@@ -141,20 +141,21 @@ All internal parameters of Livox_ros_driver2 are in the launch file. Below are d
 
 &ensp;&ensp;&ensp;&ensp;***Livox_ros_driver2 pointcloud data detailed description :***
 
-1. Livox pointcloud2 (PointXYZRTLT) point cloud format, as follows :
+1. Livox PointCloud2 format (x, y, z, time, intensity, tag, line), as follows :
 
 ```c
 float32 x               # X axis, unit:m
 float32 y               # Y axis, unit:m
 float32 z               # Z axis, unit:m
-float32 intensity       # the value is reflectivity, 0.0~255.0
+uint32  time            # offset time relative to header.stamp, unit:ns
+uint8   intensity       # intensity (reflectivity), 0~255
 uint8   tag             # livox tag
 uint8   line            # laser number in lidar
-float64 timestamp       # Timestamp of point
 ```
   **Note :**
 
-  The number of points in the frame may be different, but each point provides a timestamp.
+  The number of points in one frame may be different.
+  Per-point absolute time can be recovered by: `header.stamp + time(ns)`.
 
 2. Livox customized data package format, as follows :
 

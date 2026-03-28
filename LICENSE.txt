@@ -96,51 +96,7 @@ SOFTWARE.
 
 ===============================================================
 
-LIVOX’s Livox ROS Driver2 uses unmodified source code of RapidJSON (https://github.com/Tencent/rapidjson), which is also licensed under MIT license. A copy of the MIT license is provided below and is also available at https://opensource.org/licenses/MIT.
-
-livox_ros_driver2
-├── 3rdparty
-│   └── rapidjson
-│       ├── allocators.h
-│       ├── cursorstreamwrapper.h
-│       ├── document.h
-│       ├── encodedstream.h
-│       ├── encodings.h
-│       ├── error
-│       │   ├── en.h
-│       │   └── error.h
-│       ├── filereadstream.h
-│       ├── filewritestream.h
-│       ├── fwd.h
-│       ├── internal
-│       │   ├── biginteger.h
-│       │   ├── clzll.h
-│       │   ├── diyfp.h
-│       │   ├── dtoa.h
-│       │   ├── ieee754.h
-│       │   ├── itoa.h
-│       │   ├── meta.h
-│       │   ├── pow10.h
-│       │   ├── regex.h
-│       │   ├── stack.h
-│       │   ├── strfunc.h
-│       │   ├── strtod.h
-│       │   └── swap.h
-│       ├── istreamwrapper.h
-│       ├── memorybuffer.h
-│       ├── memorystream.h
-│       ├── msinttypes
-│       │   ├── inttypes.h
-│       │   └── stdint.h
-│       ├── ostreamwrapper.h
-│       ├── pointer.h
-│       ├── prettywriter.h
-│       ├── rapidjson.h
-│       ├── reader.h
-│       ├── schema.h
-│       ├── stream.h
-│       ├── stringbuffer.h
-│       └── writer.h
+LIVOX’s Livox ROS Driver2 depends on RapidJSON (https://github.com/Tencent/rapidjson), which is provided externally by the build environment and licensed under the MIT license. A copy of the MIT license is provided below and is also available at https://opensource.org/licenses/MIT.
 
 -------------------------------------------------------------
 
