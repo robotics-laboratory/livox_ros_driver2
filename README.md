@@ -184,38 +184,6 @@ uint8   line            # laser number in lidar
 
 &ensp;&ensp;&ensp;&ensp;Please refer to the pcl :: PointXYZI data structure in the point_types.hpp file of the PCL library.
 
-### 3.3 Check `pc2_custom_bag_converter` (ROS2)
-
-Build the package first:
-
-```shell
-cd ~/ws_livox
-source /opt/ros/jazzy/setup.bash
-colcon build --packages-select livox_ros_driver2
-source install/setup.bash
-```
-
-Run the converter:
-
-```shell
-source /opt/ros/jazzy/setup.bash
-source ~/ws_livox/install/setup.bash
-ros2 run livox_ros_driver2 pc2_custom_bag_converter \
-  --input ~/share/stepa-dataset-2506_7_0.mcap \
-  --output ~/share/stepa-dataset-2506_7_0_fixed \
-  --lidar-topic /livox/lidar
-```
-
-Notes:
-
-* This is an offline bag converter, not a ROS node.
-* Input and output must be different paths.
-* It keeps all topics and rewrites only the selected lidar topic.
-* Conversion direction is selected automatically by input topic type:
-  CustomMsg -> PointCloud2, PointCloud2 -> CustomMsg.
-* For PointCloud2 output, fields are:
-  `x(float32), y(float32), z(float32), time(uint32), intensity(uint8), tag(uint8), line(uint8)`.
-
 ## 4. LiDAR config
 
 LiDAR Configurations (such as ip, port, data type... etc.) can be set via a json-style config file. Config files for single HAP, Mid360 and mixed-LiDARs are in the "config" folder. The parameter naming *'user_config_path'* in launch files indicates such json file path.

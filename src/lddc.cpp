@@ -268,18 +268,6 @@ void Lddc::PublishCustomPointData(const CustomMsg& livox_msg, const uint8_t inde
   }
 }
 
-
-std::shared_ptr<rclcpp::PublisherBase> Lddc::GetCurrentPublisher2(uint8_t handle) {
-    uint32_t queue_size = kMinEthPacketQueueSize;
-    if (!global_pub2_) {
-        std::string topic_name("livox/lidar/custom");
-        queue_size = queue_size * 8;  // shared queue size is 256, for all lidars
-        global_pub2_ = CreatePublisher(kLivoxCustomMsg, topic_name, queue_size);
-    }
-    return global_pub2_;
-}
-
-
 void Lddc::InitImuMsg(const ImuData& imu_data, ImuMsg& imu_msg, uint64_t& timestamp) {
   imu_msg.header.frame_id = "livox_frame";
 

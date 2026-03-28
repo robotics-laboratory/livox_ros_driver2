@@ -102,7 +102,6 @@ class Lddc final {
   PublisherPtr CreatePublisher(uint8_t msg_type, std::string &topic_name, uint32_t queue_size);
 
   PublisherPtr GetCurrentPublisher(uint8_t index);
-  PublisherPtr GetCurrentPublisher2(uint8_t index);
   PublisherPtr GetCurrentImuPublisher(uint8_t index);
 
  private:
@@ -116,7 +115,6 @@ class Lddc final {
 
   PublisherPtr private_pub_[kMaxSourceLidar];
   PublisherPtr global_pub_;
-  PublisherPtr global_pub2_;
   PublisherPtr private_imu_pub_[kMaxSourceLidar];
   PublisherPtr global_imu_pub_;
 
